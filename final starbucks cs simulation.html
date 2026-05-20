@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pokémon GBA Starbucks Prototype</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #1a1a1a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Strict iPad Horizontal Resolution & Aspect Ratio */
+    .game-viewport {
+      position: relative;
+      width: 1024px;
+      height: 768px;
+      background-color: #597667; 
+      border: 8px solid #2d2d2d;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* 1. THE BACKGROUND LAYER 
+       This must be the actual flat image of the empty store generated before */
+    .store-background {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1024px;
+      height: 768px;
+      /* REPLACE THIS WITH YOUR BACKGROUND IMAGE PATH */
+      background-image: url('starbucks_empty_background.png'); 
+      background-size: 1024px 768px;
+      background-repeat: no-repeat;
+      image-rendering: pixelated; /* Strictly preserves sharp 16-bit pixels */
+      z-index: 1;
+    }
+
+    /* 2. THE MOVABLE SPRITE LAYER 
+       Characters must be isolated transparent PNGs to blend perfectly with the background */
+    .sprite {
+      position: absolute;
+      width: 192px;  /* Standard scaled GBA character bounding box */
+      height: 252px;
+      background-size: contain;
+      background-repeat: no-repeat;
+      image-rendering: pixelated;
+      z-index: 10; /* Sits firmly on top of the floor tiles */
+      
+      /* Stepped animation transition to mimic traditional grid-snapping tile movement */
+      transition: all 0.5s steps(5); 
+    }
+
+    /* SPRITE SHEET / IMAGE PATH ASSIGNMENTS */
+    .barista {
+      top: 205px;
+      left: 400px;
+      /* REPLACE WITH YOUR BARISTA SPRITE */
+      background-image: url('sprite_barista.png'); 
+    }
+
+    #customer1 {
+      top: 312px;
+      left: 380px;
+      /* REPLACE WITH YOUR CUSTOMER 1 SPRITE (BACK-FACING) */
+      background-image: url('sprite_customer1_back.png');
+    }
+
+    #customer2 {
+      top: 312px;
+      left: 516px; /* Offset right in queue */
+      /* REPLACE WITH YOUR CUSTOMER 2 SPRITE (LEFT-FACING) */
+      background-image: url('sprite_customer2_left.png');
+    }
+
+    #customer3 {
+      top: 300px;
+      left: 560px;
+      /* REPLACE WITH YOUR CUSTOMER 3 SPRITE (LEFT-FACING) */
+      background-image: url('sprite_customer3_left.png');
+    }
+
+    /* 3. THE DIALOGUE UI COMPONENT 
+       Replicating the exact custom layout: Green border, white canvas, green text */
+    .dialogue-overlay {
+      position: absolute;
+      bottom: 60px;
+      left: 32px;
+      width: calc(100% - 64px);
+      height: 180px;
+      background-color: #FFFFFF; /* Pure White interior canvas */
+      
+      /* Pure Starbucks Green border with precise pixel tracking */
+      border: 6px solid #00704A; 
+      outline: 2px solid #FFFFFF;
+      outline-offset: -8px;
+      
+      padding: 24px;
+      cursor: pointer;
+      z-index: 1000; /* Floats over absolutely everything else */
+overflow-y: auto;      /
+    }
+    
+    .dialogue-text {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 16px;
+      line-height: 1.6;
+      color: #00704A; /* Starbucks Green Typography */
+      text-transform: uppercase;
+      image-rendering: pixelated;
+    }
+.choice-button {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Adds a nice retro hover state for the barista choices */
+.choice-button:hover {
+  background-color: #00704A !important;
+  color: #FFFFFF !important;
+}
+    /* Hollow GBA Message Indicator Arrow */
+    .prompt-arrow {
+      position: absolute;
+      bottom: 16px;
+      right: 24px;
+      width: 0;
+      height: 0;
+      border-left: 12px solid transparent;
+      border-right: 12px solid transparent;
+      border-top: 16px solid #00704A;
+      animation: blink 0.5s infinite alternate;
+    }
+
+    @keyframes blink {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+/* --- RETRO POKEMON-STYLE MODAL OVERLAY --- */
+.retro-modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.4); 
+  z-index: 2000; 
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.retro-modal-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.retro-modal-box {
+  background-color: #FFFFFF;
+  border: 4px solid #2d2d2d;       
+  outline: 4px solid #00704A;      
+  padding: 24px;
+  width: 500px;
+  max-width: 80%;
+  text-align: center;
+  box-shadow: 0px 8px 0px rgba(0,0,0,0.2);
+}
+
+/* FIXED: Changed text color to your custom Starbucks Green theme */
+#retro-modal-text {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #00704A;                   /* Swapped to Starbucks Green! */
+  margin-bottom: 20px;
+  text-transform: uppercase;
+}
+
+.retro-modal-btn {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 12px;
+  color: #FFFFFF;
+  background-color: #00704A;
+  border: 2px solid #2d2d2d;
+  padding: 10px 20px;
+  cursor: pointer;
+  box-shadow: 4px 4px 0px #2d2d2d;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.retro-modal-btn:hover {
+  background-color: #00593b;
+}
+
+.retro-modal-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px #2d2d2d;
+}
+
+/* FIXED: Customer 3 starting styling with left-facing image assets */
+#customer3 {
+  top: 300px;   
+  left: 560px;  
+  background-image: url('sprite_customer3_left.png');
+}
+  </style>
+</head>
+<body>
+
+  <div class="game-viewport">
+  <div class="store-background"></div>
+
+  <div class="sprite barista"></div>
+  <div id="customer1" class="sprite"></div>
+  <div id="customer2" class="sprite"></div>
+  <div id="customer3" class="sprite"></div>
+
+  <div id="retro-modal" class="retro-modal-overlay">
+    <div class="retro-modal-box">
+      <div id="retro-modal-text">SCENARIO COMPLETE!</div>
+      <button class="retro-modal-btn" onclick="closeRetroModal()">OK</button>
+    </div>
+  </div>
+<audio id="bg-music" src="starbucks_theme.mp3" loop></audio>
+  <div class="dialogue-overlay" onclick="advanceScene()">
+    <div class="dialogue-text" id="dialogue-content">INITIALIZING SCENARIOS...</div>
+    <div class="prompt-arrow"></div>
+  </div>
+</div>
+
+  <script>
+    // --- YOUR EXACT DIALOGUE CONFIGURATION DATA ---
+const scenarios = {
+  S1: {
+    title: 'THE ANGRY WAITING CUSTOMER',
+    nodes: {
+      n1: { speaker: 'CUSTOMER', text: 'I’ve been waiting 20 minutes for my drink. People who came after me already got theirs.', next: 'c1' },
+      c1: { choices: [
+        { id: 'S1-O1', text: 'We’re very busy right now.', tag: 'NONE', score: -1, next: 'a1' },
+        { id: 'S1-O2', text: 'Oh… sorry. Let me check.', tag: 'LATTE-L, LATTE-A', score: 1, next: 'b1' },
+        { id: 'S1-O3', text: 'I’m really sorry about the wait. Let me check your order right away.', tag: 'LATTE-L, LATTE-A', score: 3, next: 'c2' }
+      ]},
+      a1: { speaker: 'CUSTOMER', text: 'I can see that. But I ordered way before them.', next: 'a2' },
+      a2: { choices: [
+        { id: 'S1-O4', text: 'We make drinks in the order they come in.', tag: 'LATTE-E', score: -1, next: 'end1' },
+        { id: 'S1-O5', text: 'Some drinks take less time than others.', tag: 'LATTE-E', score: -1, next: 'end1' }
+      ]},
+      b1: { speaker: 'CUSTOMER', text: 'So is my drink missing or what?', next: 'b2' },
+      b2: { choices: [
+        { id: 'S1-O6', text: 'Uhm… maybe it’s still being made.', tag: 'NONE', score: 0, next: 'end2' },
+        { id: 'S1-O7', text: 'Yeah… hold on…', tag: 'LATTE-T1', score: 0, next: 'end2' }
+      ]},
+      c2: { speaker: 'CUSTOMER', text: 'Yeah, because it’s been a long wait.', next: 'c3' },
+      c3: { choices: [
+        { id: 'S1-O8', text: 'Thank you for telling me. I can see why that’s frustrating.', tag: 'LATTE-A, EMPATHY', score: 2, next: 'c4' },
+        { id: 'S1-O9', text: 'Some orders do move faster depending on the station.', tag: 'LATTE-E', score: 0, next: 'c4' }
+      ]},
+      c4: { speaker: 'CUSTOMER', text: 'People after me got theirs first.', next: 'c5' },
+      c5: { choices: [
+        { id: 'S1-O10', text: 'You’re right to ask. I’m checking your order now.', tag: 'LATTE-T1, OWNERSHIP', score: 2, next: 'c6' },
+        { id: 'S1-O11', text: 'We’re doing our best.', tag: 'NONE', score: -1, next: 'c6' }
+      ]},
+      c6: { speaker: 'BARISTA', text: 'I found it. We’re slightly behind, but your drink should be out in about 2 minutes.', tag: 'LATTE-E', next: 'end3' },
+      end3: { speaker: 'CUSTOMER', text: 'Thanks for checking.', next: null },
+      end1: { speaker: 'CUSTOMER', text: '[Angry Stare] Just give me my refund.', next: null },
+      end2: { speaker: 'CUSTOMER', text: 'Forget it, I don\'t have time for this.', next: null }
+    },
+    end: 'SUCCESSFUL RECOVERY',
+    note: 'Good listen, acknowledge, thank, take action, and explain.'
+  },
+  S2: {
+    title: 'THE WRONG MILK ORDER',
+    nodes: {
+      n1: { speaker: 'CUSTOMER', text: 'I ordered this with oat milk. This tastes like regular milk.', next: 'c1' },
+      c1: { choices: [
+        { id: 'S2-O1', text: 'The sticker says whole milk.', tag: 'NONE', score: -1, next: 'a1' },
+        { id: 'S2-O2', text: 'Oops, okay haha, we can remake it.', tag: 'LATTE-T1', score: 0, next: 'b1' },
+        { id: 'S2-O3', text: 'I’m really sorry. I’ll remake this right away with oat milk.', tag: 'LATTE-A, LATTE-T1, OWNERSHIP', score: 3, next: 'c2' }
+      ]},
+      a1: { speaker: 'CUSTOMER', text: 'Well then someone printed it wrong.', next: 'a2' },
+      a2: { choices: [
+        { id: 'S2-O4', text: 'I can only make what’s on the cup.', tag: 'NONE', score: -1, next: 'end1' },
+        { id: 'S2-O5', text: 'Then it was entered wrong.', tag: 'NONE', score: -1, next: 'end1' }
+      ]},
+      b1: { speaker: 'CUSTOMER', text: 'This isn’t funny. I’m lactose intolerant.', next: 'b2' },
+      b2: { choices: [
+        { id: 'S2-O6', text: 'Oh… sorry.', tag: 'LATTE-A', score: 0, next: 'end2' },
+        { id: 'S2-O7', text: 'Uh… not usually.', tag: 'NONE', score: -1, next: 'end2' }
+      ]},
+      c2: { speaker: 'CUSTOMER', text: 'I’m lactose intolerant, so this matters.', next: 'c3' },
+      c3: { choices: [
+        { id: 'S2-O8', text: 'I completely understand. Thank you for letting me know right away.', tag: 'LATTE-A, THANK', score: 2, next: 'c4' },
+        { id: 'S2-O9', text: 'We’ll remake it eventually.', tag: 'NONE', score: -1, next: 'c4' }
+      ]},
+      c4: { speaker: 'CUSTOMER', text: 'Can you make sure it’s oat milk this time?', next: 'c5' },
+      c5: { choices: [
+        { id: 'S2-O10', text: 'Absolutely. I’ll personally confirm it with the partner remaking the drink, and we’ll use clean equipment as much as possible to reduce cross-contact.', tag: 'LATTE-T1, LATTE-E, SAFETY, OWNERSHIP', score: 3, next: 'c6' },
+        { id: 'S2-O11', text: 'I’ll tell them to remake it.', tag: 'LATTE-T1', score: 1, next: 'c6' }
+      ]},
+      c6: { speaker: 'CUSTOMER', text: 'Okay, thank you. I appreciate that.', next: null },
+      end1: { speaker: 'CUSTOMER', text: 'Let me talk to your manager instead.', next: null },
+      end2: { speaker: 'CUSTOMER', text: 'This is dangerous. Just give me my money back.', next: null }
+    },
+    end: 'SUCCESSFUL RECOVERY',
+    note: 'Serious concern handled with ownership, reassurance, and safety awareness.'
+  },
+  S3: {
+    title: 'THE RUDE CLOSING-TIME CUSTOMER',
+    nodes: {
+      n1: { speaker: 'CUSTOMER', text: 'Can I get a caramel frappuccino?', next: 'b1' },
+      b1: { speaker: 'BARISTA', text: 'Just to let you know, we’re closing shortly and some stations have already been cleaned.', next: 'c1' },
+      c1: { speaker: 'CUSTOMER', text: 'Seriously? What kind of Starbucks closes this early?', next: 'ch1' },
+      ch1: { choices: [
+        { id: 'S3-O1', text: 'We’ve been working all day too.', tag: 'NONE', score: -1, next: 'a1' },
+        { id: 'S3-O2', text: 'Those are the standard procedures.', tag: 'LATTE-E', score: 0, next: 'b2' },
+        { id: 'S3-O3', text: 'I understand the frustration. Let me see what we can still make for you.', tag: 'LATTE-A, OWNERSHIP', score: 3, next: 'c2' }
+      ]},
+      a1: { speaker: 'CUSTOMER', text: 'Excuse me?', next: 'a2' },
+      a2: { choices: [
+        { id: 'S3-O4', text: 'We can’t keep everything open until the last minute.', tag: 'NONE', score: -1, next: 'end1' },
+        { id: 'S3-O5', text: 'We’re trying to close.', tag: 'NONE', score: -1, next: 'end1' }
+      ]},
+      b2: { speaker: 'CUSTOMER', text: 'Okay… but I came before closing time.', next: 'b3' },
+      b3: { choices: [
+        { id: 'S3-O6', text: 'Blended beverage stations are already unavailable.', tag: 'LATTE-E', score: 0, next: 'end2' },
+        { id: 'S3-O7', text: 'I already explained the procedure.', tag: 'NONE', score: -1, next: 'end2' }
+      ]},
+      c2: { speaker: 'CUSTOMER', text: 'So no frappuccino?', next: 'c3' },
+      c3: { choices: [
+        { id: 'S3-O8', text: 'Unfortunately the blender station has already been cleaned, but I can make you an iced latte, cold brew, or refresher.', tag: 'LATTE-E, BOUNDARY, OWNERSHIP', score: 3, next: 'c4' },
+        { id: 'S3-O9', text: 'No, we can’t do that.', tag: 'NONE', score: -1, next: 'c4' }
+      ]},
+      c4: { choices: [
+        { id: 'S3-O10', text: 'I’m sorry about that. We want to keep the store safe and ready for opening tomorrow.', tag: 'LATTE-A, LATTE-E, BOUNDARY', score: 2, next: 'c5' },
+        { id: 'S3-O11', text: 'That’s just how closing works.', tag: 'NONE', score: -1, next: 'c5' }
+      ]},
+      c5: { speaker: 'CUSTOMER', text: 'Okay. I’ll take the iced latte.', next: 'end3' },
+      end3: { speaker: 'BARISTA', text: 'Of course. Thank you for understanding.', next: null },
+      end1: { speaker: 'CUSTOMER', text: 'Forget it, your customer service is terrible.', next: null },
+      end2: { speaker: 'CUSTOMER', text: 'Fine, I\'ll go somewhere else.', next: null }
+    },
+    end: 'SUCCESSFUL BOUNDARY-SETTING',
+    note: 'Calm boundary plus solution preserved professionalism.'
+  }
+};
+
+// --- ENGINE STATE TRACKERS ---
+let currentScenarioId = 'S1'; // Switches between S1, S2, S3
+let currentNodeId = 'n1';     // Progress tracking through node keys
+let currentScore = 0;         // Aggregated running score tracker
+
+// DOM Element Selections
+const textOutput = document.getElementById('dialogue-content');
+const promptArrow = document.querySelector('.prompt-arrow');
+const container = document.querySelector('.dialogue-overlay');
+
+// Map HTML Sprite components for positional canvas staging
+const customer1 = document.getElementById('customer1');
+const customer2 = document.getElementById('customer2');
+const customer3 = document.getElementById('customer3');
+
+// Holds the scenario sequencing state while modal window is open
+let pendingCallback = null; 
+
+// --- THE CORE GAME ENGINE LOGIC ---
+
+function showRetroModal(message, callback) {
+  document.getElementById('retro-modal-text').innerText = message;
+  document.getElementById('retro-modal').classList.add('active');
+  pendingCallback = callback; 
+}
+
+function closeRetroModal() {
+  document.getElementById('retro-modal').classList.remove('active');
+  if (pendingCallback) {
+    pendingCallback(); 
+    pendingCallback = null;
+  }
+}
+
+function initGame() {
+  currentNodeId = 'n1';
+  
+  if (currentScenarioId === 'S1') {
+    currentScore = 0; 
+    
+    // Hard reset all character image assets back to their default starting postures
+    customer1.style.backgroundImage = "url('sprite_customer1_back.png')";
+    customer2.style.backgroundImage = "url('sprite_customer2_left.png')";
+    customer3.style.backgroundImage = "url('sprite_customer3_left.png')"; // Restores your asset selection
+    
+    // Snap everyone back to their starting coordinates
+    customer1.style.left = "380px";
+    customer1.style.top = "312px";
+    customer2.style.left = "516px";
+    customer2.style.top = "312px";
+    
+    // FIXED: Synchronized with your exact layout numbers so they show up instantly
+    customer3.style.left = "560px";
+    customer3.style.top = "300px";
+  }
+  
+  renderNode();
+}
+
+function renderNode() {
+  const scenario = scenarios[currentScenarioId];
+  const node = scenario.nodes[currentNodeId];
+
+  // Remove old option UI buttons if they exist
+  const oldButtons = document.querySelectorAll('.choice-button');
+  oldButtons.forEach(btn => btn.remove());
+
+  // Check if node contains a custom multi-choice branch array
+  if (node.choices) {
+    promptArrow.style.display = 'none';
+    textOutput.innerText = "CHOOSE YOUR RESPONSE:";
+
+    node.choices.forEach(choice => {
+      const button = document.createElement('button');
+      button.className = 'choice-button';
+      button.innerText = choice.text;
+      
+      // Retro button aesthetics
+      button.style.display = 'block';
+      button.style.width = '100%';
+      button.style.margin = '8px 0';
+      button.style.padding = '8px 12px';
+      button.style.background = '#FFFFFF';
+      button.style.border = '2px solid #00704A';
+      button.style.color = '#00704A';
+      button.style.fontFamily = "'Press Start 2P', monospace";
+      button.style.fontSize = '14px';
+      button.style.textAlign = 'left';
+      button.style.cursor = 'pointer';
+
+      button.onclick = (e) => {
+        e.stopPropagation(); 
+        currentScore += choice.score;
+        currentNodeId = choice.next;
+        renderNode();
+      };
+
+      container.appendChild(button);
+    });
+  } else {
+    promptArrow.style.display = 'block';
+    textOutput.innerText = `${node.speaker}: ${node.text}`;
+    updateSpritePositions();
+  }
+}
+
+// Global master click container logic for handling linear text progression
+function advanceScene() {
+
+// FIXED: Effortlessly wakes up your local MP3 file on the very first dialogue click!
+  const bgMusic = document.getElementById('bg-music');
+  if (bgMusic && bgMusic.paused) {
+    bgMusic.play().catch(err => console.log("Audio waiting for absolute user gesture confirmation."));
+  }
+  const scenario = scenarios[currentScenarioId];
+  const node = scenario.nodes[currentNodeId];
+
+  // If choices are on screen or custom alert is open, ignore global clicks
+  if (node.choices || document.getElementById('retro-modal').classList.contains('active')) return;
+
+  if (node.next) {
+    currentNodeId = node.next;
+    renderNode();
+  } else {
+    // --- ENDPOINT HIT (node.next === null) ---
+
+    // RESOLUTION HANDLING FOR SCENARIO 1
+    if (currentScenarioId === 'S1') {
+      let msg = "";
+      if (currentScore >= 3) {
+        msg = `Scenario Complete!\nFinal Score: ${currentScore}\n\nResult: SUCCESSFUL RECOVERY\nCustomer 1 is satisfied!`;
+        customer1.style.backgroundImage = "url('sprite_customer1_back_happy.png')";
+      } else {
+        msg = `Scenario Complete!\nFinal Score: ${currentScore}\n\nResult: UNSATISFACTORY SERVICE\nCustomer 1 storms off disappointed.`;
+        customer1.style.backgroundImage = "url('sprite_customer1_left.png')";
+      }
+
+      showRetroModal(msg, function() {
+        setTimeout(() => {
+          // Customer 1 moves over to pickup window
+          customer1.style.left = "100px";
+          customer1.style.top = "192px";
+          
+          // Line shifts forward
+          customer2.style.left = "380px";
+          customer2.style.top = "312px";
+          
+          // Customer 3 shifts from waiting rank to queue position 2
+          customer3.style.left = "516px";
+          customer3.style.top = "312px";
+
+          currentScenarioId = 'S2';
+          initGame();
+        }, 500);
+      });
+      return; 
+    }
+
+    // RESOLUTION HANDLING FOR SCENARIO 2
+    if (currentScenarioId === 'S2') {
+      let msg = "";
+      if (currentScore >= 3) {
+        msg = `Scenario Complete!\nCumulative Score: ${currentScore}\n\nResult: SUCCESSFUL RECOVERY\nCustomer 2 is satisfied with the remake!`;
+        customer2.style.backgroundImage = "url('sprite_customer2_left.png')";
+      } else {
+        msg = `Scenario Complete!\nCumulative Score: ${currentScore}\n\nResult: UNSATISFACTORY SERVICE\nCustomer 2 is angry about the milk error!`;
+        customer2.style.backgroundImage = "url('sprite_customer2_angry.png')";
+      }
+
+      showRetroModal(msg, function() {
+        // Customer 2 slides over to wait area under both conditions
+        setTimeout(() => {
+          customer2.style.left = "150px";
+          customer2.style.top = "192px";
+        }, 500);
+
+        // Shift Customer 3 up to the register counter for Scenario 3
+        setTimeout(() => {
+          customer3.style.left = "380px";
+          customer3.style.top = "312px";
+
+          currentScenarioId = 'S3';
+          initGame();
+        }, 1200);
+      });
+      return;
+    }
+
+    // RESOLUTION HANDLING FOR SCENARIO 3 (FINAL RESET LOOP)
+    let finalMsg = `Scenario Complete!\nFinal Score: ${currentScore}\n\nResult: ${scenario.end}\n\nNote: ${scenario.note}`;
+    
+    showRetroModal(finalMsg, function() {
+      currentScenarioId = 'S1';
+      initGame();
+    });
+  }
+}
+
+// Manages real-time asset adjustments and positions *during* the active conversations
+function updateSpritePositions() {
+  if (currentScenarioId === 'S1') {
+    // Keep character lines sitting completely stable in their starting slots
+    customer1.style.left = "380px";
+    customer1.style.top = "312px";
+    customer2.style.left = "516px";
+    customer2.style.top = "312px";
+    
+    // FIXED: Keeps customer 3 held tightly at your chosen baseline coordinates during conversation text progression
+    customer3.style.left = "560px";
+    customer3.style.top = "300px";
+  } 
+  else if (currentScenarioId === 'S2') {
+    // Make sure Customer 2 faces back towards the counter
+    customer2.style.backgroundImage = "url('sprite_customer2_back.png')";
+  } else if (currentScenarioId === 'S3') {
+    // Make sure Customer 3 faces back towards the counter
+    customer3.style.backgroundImage = "url('sprite_customer3_back.png')"; 
+  }
+}
+
+// Wake up engine on execution
+window.onload = initGame;
+  </script>
+</body>
+</html>
